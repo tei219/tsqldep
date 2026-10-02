@@ -1,0 +1,4 @@
+-- EXPECT: C=A; R=A; U=; D=
+INSERT INTO A
+SELECT *
+FROM A;
