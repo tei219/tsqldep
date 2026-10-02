@@ -297,7 +297,7 @@ function getcrud {
 			addcrud $stmts.source "C" (showtables $stmt.SchemaObjectName)
 		}
 		"DropTableStatement" {
-			addcrud $stmts.source "D" (showtables $stmt.SchemaObjectName)
+			$stmt.Objects | % { addcrud $stmts.source "D" (showtables $_) }
 		}
 		"SelectStatement" {
 			if ($stmt.Into) {
