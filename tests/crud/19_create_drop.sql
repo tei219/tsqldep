@@ -1,0 +1,3 @@
+-- EXPECT: C=A; R=; U=; D=B
+CREATE TABLE A (id int);
+DROP TABLE B;
