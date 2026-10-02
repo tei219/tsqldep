@@ -357,7 +357,9 @@ function getcrud {
 		"IfStatement" {
 			getcrud $stmt.ThenStatement $stmts
 			if ($stmt.ElseStatement) { getcrud $stmt.ElseStatement $stmts }
-			getcrud $stmt.Predicate $stmts
+			# IF predicates can contain EXISTS/IN subqueries.
+			getcrudtables $stmt.Predicate |
+				% { addcrud $stmts.source "R" $_ }
 		}
 		default {
 			# CRUD support is intentionally limited to the statement types
