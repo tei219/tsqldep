@@ -1,0 +1,9 @@
+-- EXPECT: C=A; R=B,C; U=; D=
+INSERT INTO A
+SELECT *
+FROM B
+WHERE EXISTS (
+    SELECT 1
+    FROM C
+    WHERE C.id = B.id
+);
