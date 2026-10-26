@@ -44,7 +44,7 @@ type     source                                   formatted
 string   select * from a; select * from b;        SELECT *...
 
 オプション -op format または -f を使用して整形結果を出力します。
-'formatted' 列で整形結果を確認できます。整形方は sqldom の標準に準拠します。
+'formatted' 列で整形結果を確認できます。整形方法は ScriptDom の標準に準拠します。
 
 
 .EXAMPLE
@@ -55,7 +55,7 @@ type     source                                   tree                          
 string   select * from a; select * from b         {QueryExpression=Microsoft.SqlServer.TransactSql.ScriptDo... select * from a;
 string   select * from a; select * from b         {QueryExpression=Microsoft.SqlServer.TransactSql.ScriptDo... select * from b
 
-オプション -op format または -f を使用して解析ツリー結果を出力します。
+オプション -op tree または -r を使用して解析ツリー結果を出力します。
 結果はステートメント毎に出力します。
 
 
@@ -107,7 +107,6 @@ https://msdn.microsoft.com/ja-jp/library/hh215705.aspx
 https://technet.microsoft.com/ja-jp/library/dn520871.aspx
 
 .NOTES
-TODO: CRUD の if statement 内判別
 
 #>
 
