@@ -124,7 +124,7 @@ param (
 	[switch] $f = $false,
 	[switch] $desc = $false,
 	[switch] $tablelist = $false,
-	[parameter()] [ValidateSet( 'TSql80Parser','TSql90Parser','TSql100Parser','TSql110Parser','TSql120Parser' )] [string] $version = "TSql110Parser"
+	[parameter()] [ValidateSet( 'TSql80Parser','TSql90Parser','TSql100Parser','TSql110Parser','TSql120Parser','TSql130Parser','TSql140Parser','TSql150Parser','TSql160Parser','TSql170Parser','TSql180Parser' )] [string] $version = "TSql110Parser"
 )
 
 if ($r) { $op = "tree" }
