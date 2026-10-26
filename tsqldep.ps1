@@ -507,7 +507,11 @@ $buffertable | % {
 	getcrud $stmts.stmt $stmts
 }
 
-foreach ($key in $crud.Keys) {
+# Emit CRUD results in the same order as the source files were parsed.
+# Hashtable key enumeration order is not guaranteed.
+foreach ($sql in $sources) {
+	$key = $sql.source
+	if (-not $crud.ContainsKey($key)) { continue }
 	$key+" : "
 	foreach ($k in $crud[$key].keys) {
 		$k+" : "+$( ($crud[$key][$k] | Sort-Object -Unique) -join ",")
