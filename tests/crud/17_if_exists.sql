@@ -1,0 +1,3 @@
+-- EXPECT: C=; R=A,B; U=; D=
+IF EXISTS (SELECT 1 FROM A)
+    SELECT * FROM B;

@@ -245,73 +245,126 @@ function showquery {
 	$q
 }
 
+function addcrud {
+	param ( $source, $kind, $table )
+	if ($table) {
+		$crud[$source][$kind] += $table
+	}
+}
+
+function getcrudtables {
+	param ( $node )
+	if ($null -eq $node) { return }
+
+	if ($node -is [System.Collections.IEnumerable] -and
+		-not ($node -is [string]) -and
+		-not ($node -is [Microsoft.SqlServer.TransactSql.ScriptDom.TSqlFragment])) {
+		foreach ($item in $node) {
+			getcrudtables $item
+		}
+		return
+	}
+
+	if (-not ($node -is [Microsoft.SqlServer.TransactSql.ScriptDom.TSqlFragment])) {
+		return
+	}
+
+	# NamedTableReference represents an actual table/CTE reference.
+	# Do not walk into SchemaObjectName, otherwise column identifiers can
+	# be mistaken for tables.
+	if ($node.gettype().name -eq "NamedTableReference") {
+		if ($node.SchemaObject) {
+			showtables $node.SchemaObject
+		}
+		return
+	}
+
+	$node | get-member -membertype property |
+		? { $_.Name -notin @("StartLine","StartOffset","FragmentLength","StartColumn","FirstTokenIndex","LastTokenIndex","ScriptTokenStream") } |
+		foreach {
+			$value = $node.($_.name)
+			if ($null -ne $value) {
+				getcrudtables $value
+			}
+		}
+}
+
 function getcrud {
 	param ( $stmt, $stmts )
+
 	switch ($stmt.gettype().name) {
-		"CreateTableStatement" { $stmts.tables | % { $crud[$stmts.source]["C"] += $_; } }
-		"DropTableStatement" { $stmts.tables | % { $crud[$stmts.source]["D"] += $_; } }
-		"SelectStatement" { 
-				if ($stmts.stmt.Into) {
-					$into = $(showtables $stmt.Into)
-				}
-				$stmts.tables | % { 
-					if ($_ -ne $into) {
-						$crud[$stmts.source]["R"] += $_; 
-					} else {
-						$crud[$stmts.source]["C"] += $into; 
-					}
-				}; 
-				$into = $null;
-			}
-		"InsertStatement" {
-			if ($stmts.stmt.InsertSpecification.Target.SchemaObject) {
-				$into = $(showtables $stmt.InsertSpecification.Target.SchemaObject)
-			}
-				$stmts.tables | % { 
-					if ($_ -ne $into) {
-						$crud[$stmts.source]["R"] += $_; 
-					} else {
-						$crud[$stmts.source]["C"] += $into; 
-					}
-				}; 
-				$into = $null;
+		"CreateTableStatement" {
+			addcrud $stmts.source "C" (showtables $stmt.SchemaObjectName)
 		}
-		"UpdateStatement" { 
-			$target = $(showtables $stmt.UpdateSpecification.Target.SchemaObject)
-			$stmts.tables | % { 
-				if ($_ -ne $target) {
-					$crud[$stmts.source]["R"] += $_; 
-				} else {
-					$crud[$stmts.source]["U"] += $target; 
-				}
-			};
+		"DropTableStatement" {
+			$stmt.Objects | % { addcrud $stmts.source "D" (showtables $_) }
+		}
+		"SelectStatement" {
+			if ($stmt.Into) {
+				addcrud $stmts.source "C" (showtables $stmt.Into)
+			}
+			# QueryExpression contains FROM/JOIN tables and all nested
+			# subqueries, but not the SELECT INTO target.
+			getcrudtables $stmt.QueryExpression |
+				% { addcrud $stmts.source "R" $_ }
+		}
+		"InsertStatement" {
 			$target = $null
+			if ($stmt.InsertSpecification.Target.SchemaObject) {
+				$target = showtables $stmt.InsertSpecification.Target.SchemaObject
+				addcrud $stmts.source "C" $target
+			}
+			# Only the insert source is a read side. This keeps the target
+			# out of R while still allowing INSERT INTO A SELECT ... FROM A
+			# to report both C:A and R:A.
+			getcrudtables $stmt.InsertSpecification.InsertSource |
+				% { addcrud $stmts.source "R" $_ }
+		}
+		"UpdateStatement" {
+			$target = showtables $stmt.UpdateSpecification.Target.SchemaObject
+			addcrud $stmts.source "U" $target
+
+			# Exclude the target from the main UPDATE tree so the target
+			# itself is not reported as a read merely because it appears in
+			# the UPDATE ... FROM clause. Nested subqueries remain readable
+			# and are handled by the recursive traversal.
+			$sources = @()
+			getcrudtables $stmt.UpdateSpecification.FromClause |
+				% { $sources += $_ }
+			getcrudtables $stmt.UpdateSpecification.SetClauses |
+				% { $sources += $_ }
+			getcrudtables $stmt.UpdateSpecification.WhereClause |
+				% { $sources += $_ }
+			getcrudtables $stmt.UpdateSpecification.OutputClause |
+				% { $sources += $_ }
+			$sources | ? { $_ -ne $target } |
+				% { addcrud $stmts.source "R" $_ }
 		}
 		"DeleteStatement" {
-			$target = $(showtables $stmt.DeleteSpecification.Target.SchemaObject)
-			$stmts.tables | % { 
-				if ($_ -ne $target) {
-					$crud[$stmts.source]["R"] += $_; 
-				} else {
-					$crud[$stmts.source]["D"] += $target; 
-				}
-			};
-			$target = $null
+			$target = showtables $stmt.DeleteSpecification.Target.SchemaObject
+			addcrud $stmts.source "D" $target
+
+			$sources = @()
+			getcrudtables $stmt.DeleteSpecification.FromClause |
+				% { $sources += $_ }
+			getcrudtables $stmt.DeleteSpecification.WhereClause |
+				% { $sources += $_ }
+			getcrudtables $stmt.DeleteSpecification.OutputClause |
+				% { $sources += $_ }
+			$sources | ? { $_ -ne $target } |
+				% { addcrud $stmts.source "R" $_ }
 		}
 		"IfStatement" {
 			getcrud $stmt.ThenStatement $stmts
 			if ($stmt.ElseStatement) { getcrud $stmt.ElseStatement $stmts }
-			getcrud $stmt.Predicate $stmts
+			# IF predicates can contain EXISTS/IN subqueries.
+			getcrudtables $stmt.Predicate |
+				% { addcrud $stmts.source "R" $_ }
 		}
-		"ExistsPredicate" {
-			if ($stmt.Subquery.QueryExpression.FromClause) {
-				$iftarget = $(gettables $stmt.Subquery.QueryExpression $stmts)
-$iftarget
-				$stmts.tables
-			} 
-		}
-		default { 
-			#$stmt.gettype().name
+		default {
+			# CRUD support is intentionally limited to the statement types
+			# handled above. CTEs, procedures, MERGE and dynamic SQL are
+			# outside the current scope.
 		}
 	}
 }

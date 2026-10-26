@@ -1,0 +1,2 @@
+-- EXPECT: C=; R=; U=; D=A;
+DELETE FROM A;
