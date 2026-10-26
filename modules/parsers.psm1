@@ -16,7 +16,7 @@ function parsers {
 		exit;
 	}
 	
-	# select avilable parser
+	# select available parser
 	$create_flgs = [ordered] @{};
 	if ($versions -eq $null) {
 		if ([bool] ($sqldom.gettypes() | where-object {$_.name -eq "TSql80Parser" } )) { $create_flgs.add("SQLServer2000", $true); }
