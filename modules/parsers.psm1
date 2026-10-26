@@ -4,9 +4,13 @@
 function parsers {
 	param( $versions );
 	
-	# choose 'LoadFrom' or 'LoadWithPartialName'
-	#$sqldom = [System.Reflection.Assembly]::LoadFrom("C:\Program Files\Microsoft SQL Server\110\SDK\Assemblies\Microsoft.SqlServer.TransactSql.ScriptDom.dll");
-	$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+	# Prefer the ScriptDom DLL distributed with the repository; fall back to an installed assembly.
+	$dllPath = Join-Path (Split-Path $PSScriptRoot -Parent) "Microsoft.SqlServer.TransactSql.ScriptDom.dll";
+	if (Test-Path $dllPath) {
+		$sqldom = [System.Reflection.Assembly]::LoadFrom($dllPath);
+	} else {
+		$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+	}
 	if (-not $sqldom) {
 		write-host "[ERR ] Please install the SQLDOM.MSI from the SQL 2012 Feature Pack web page http://www.microsoft.com/en-us/download/details.aspx?id=35580" -foregroundcolor red
 		exit;

@@ -124,7 +124,7 @@ param (
 	[switch] $f = $false,
 	[switch] $desc = $false,
 	[switch] $tablelist = $false,
-	[parameter()] [ValidateSet( 'TSql80Parser','TSql90Parser','TSql100Parser','TSql110Parser','TSql120Parser' )] [string] $version = "TSql110Parser"
+	[parameter()] [ValidateSet( 'TSql80Parser','TSql90Parser','TSql100Parser','TSql110Parser','TSql120Parser','TSql130Parser','TSql140Parser','TSql150Parser','TSql160Parser','TSql170Parser','TSql180Parser' )] [string] $version = "TSql110Parser"
 )
 
 if ($r) { $op = "tree" }
@@ -371,7 +371,12 @@ function getcrud {
 
 # main ########################################################################
 # create $parser
-$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+$dllPath = Join-Path $PSScriptRoot "Microsoft.SqlServer.TransactSql.ScriptDom.dll";
+if (Test-Path $dllPath) {
+	$sqldom = [System.Reflection.Assembly]::LoadFrom($dllPath);
+} else {
+	$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+}
 if (-not $sqldom ) { ErrorExit; } #$sqldom.gettypes()
 
 if ([bool] ($sqldom.gettypes() | where-object {$_.name -eq $version } )) {
@@ -425,7 +430,13 @@ if ($op -eq "format") {
 	$sources | % {
 		$str = $_;
 		$sql = ""
-		$generator = new-object Microsoft.SqlServer.TransactSql.ScriptDom.Sql110ScriptGenerator;
+		$generator_version = $version -replace '^TSql(\d+)Parser$', '$1';
+		$generator_type = "Microsoft.SqlServer.TransactSql.ScriptDom.Sql${generator_version}ScriptGenerator";
+		if (-not $sqldom.GetType($generator_type, $false)) {
+			write-host ("[ERR ] script generator not available for '{0}'. can't continue." -f $version) -foregroundcolor red;
+			exit;
+		}
+		$generator = New-Object -TypeName $generator_type;
 		$generator.GenerateScript($str.fragment, [ref] $sql);
 		mktable( @("type","source","formatted") ) | % { $_.type = $str.type; $_.source = $str.source; $_.formatted = $sql; $_ }
 	}
