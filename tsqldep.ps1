@@ -371,7 +371,12 @@ function getcrud {
 
 # main ########################################################################
 # create $parser
-$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+$dllPath = Join-Path $PSScriptRoot "Microsoft.SqlServer.TransactSql.ScriptDom.dll";
+if (Test-Path $dllPath) {
+	$sqldom = [System.Reflection.Assembly]::LoadFrom($dllPath);
+} else {
+	$sqldom = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.TransactSql.ScriptDom");
+}
 if (-not $sqldom ) { ErrorExit; } #$sqldom.gettypes()
 
 if ([bool] ($sqldom.gettypes() | where-object {$_.name -eq $version } )) {
