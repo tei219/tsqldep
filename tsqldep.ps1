@@ -483,7 +483,7 @@ if ($op -eq "tables") {
 		$buffertable | select source, tables | % { $tables[$_.source] += @($_.tables) }
 		foreach ($key in $tables.keys) {
 			$fn = "tablelist\" + $key.replace("\","_").replace(".sql",".txt")
-			$tables[$key] | sort -unique | out-file $fn
+			$tables[$key] | Sort-Object -Unique | out-file $fn
 		}
 		write-host("tablelist of sources are stored in tablelist\")
 	} else {
@@ -510,7 +510,7 @@ $buffertable | % {
 foreach ($key in $crud.Keys) {
 	$key+" : "
 	foreach ($k in $crud[$key].keys) {
-		$k+" : "+$( ($crud[$key][$k] | sort -uniq) -join ",")
+		$k+" : "+$( ($crud[$key][$k] | Sort-Object -Unique) -join ",")
 	}
 	" "
 }
