@@ -107,7 +107,6 @@ https://msdn.microsoft.com/ja-jp/library/hh215705.aspx
 https://technet.microsoft.com/ja-jp/library/dn520871.aspx
 
 .NOTES
-TODO: CRUD の IF ステートメント内の判別
 
 #>
 
