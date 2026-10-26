@@ -425,7 +425,90 @@ if ($op -eq "format") {
 	$sources | % {
 		$str = $_;
 		$sql = ""
-		$generator = new-object Microsoft.SqlServer.TransactSql.ScriptDom.Sql110ScriptGenerator;
+		$generator_version = $version -replace '^TSql(\d+)Parser
+		mktable( @("type","source","formatted") ) | % { $_.type = $str.type; $_.source = $str.source; $_.formatted = $sql; $_ }
+	}
+	exit;
+}
+#
+#Microsoft.SqlServer.TransactSql.ScriptDom.TSqlFragment
+# + Microsoft.SqlServer.TransactSql.ScriptDom.TSqlScript <- $sql.fragment
+# + Microsoft.SqlServer.TransactSql.ScriptDom.SelectElement
+#  + Microsoft.SqlServer.TransactSql.ScriptDom.SelectSetVariable
+# + Microsoft.SqlServer.TransactSql.ScriptDom.TSqlBatch <- $sql.fragment.batches
+# + Microsoft.SqlServer.TransactSql.ScriptDom.TSqlStatement <- $sql.fragment.batches[]
+#
+
+# gettables and getcrud
+$buffertable += foreach ($sql in $sources) {
+	foreach ($batch in $sql.fragment.batches) {
+		foreach ($statement in $batch.statements) {
+			switch($op) {
+				"tree" {
+					mktable( @("type","source","tree","query","stmt") ) | % { $_.type = $sql.type; $_.source = $sql.source; $_.query = $(showquery $statement); $_.tree = $(showtree $statement); $_.stmt = $statement; $_ }
+				}
+				default {
+					mktable( @("type","source","tables","query","stmt") ) | % { $_.type = $sql.type; $_.source = $sql.source; $_.query = $(showquery $statement); $_.tables = $(gettables $statement); $_.stmt = $statement; $_ }
+					#gettables $statement
+				}
+			}
+		}
+	}
+}
+if ($op -eq "tree") { 
+	if (-not $desc) {
+		$buffertable | select type, source, tree, query
+	} else {
+		$buffertable 
+	}
+	exit; 
+}
+
+if ($op -eq "tables") {
+	if ($tablelist) {
+		mkdir "tablelist" -ErrorAction SilentlyContinue
+		$tables = @{};
+		$buffertable | select source, tables | % { $tables[$_.source] += @($_.tables) }
+		foreach ($key in $tables.keys) {
+			$fn = "tablelist\" + $key.replace("\","_").replace(".sql",".txt")
+			$tables[$key] | sort -unique | out-file $fn
+		}
+		write-host("tablelist of sources are stored in tablelist\")
+	} else {
+		if (-not $desc) {
+			$buffertable | select type, source, tables, query
+		} else {
+			$buffertable 
+		}
+	}
+	exit; 
+}
+
+
+# crud
+$crud = @{};
+$buffertable | % {
+	$stmts = $_;
+	if (-not $crud.contains($stmts.source)) {
+		$crud.add($stmts.source, [ordered]@{C = @();R = @();U = @();D = @(); });
+	}
+	getcrud $stmts.stmt $stmts
+}
+
+foreach ($key in $crud.Keys) {
+	$key+" : "
+	foreach ($k in $crud[$key].keys) {
+		$k+" : "+$( ($crud[$key][$k] | sort -uniq) -join ",")
+	}
+	" "
+}
+, '$1';
+		$generator_type = "Microsoft.SqlServer.TransactSql.ScriptDom.Sql${generator_version}ScriptGenerator";
+		if (-not $sqldom.GetType($generator_type, $false)) {
+			write-host ("[ERR ] script generator not available for '{0}'. can't continue." -f $version) -foregroundcolor red;
+			exit;
+		}
+		$generator = New-Object -TypeName $generator_type;
 		$generator.GenerateScript($str.fragment, [ref] $sql);
 		mktable( @("type","source","formatted") ) | % { $_.type = $str.type; $_.source = $str.source; $_.formatted = $sql; $_ }
 	}
