@@ -49,10 +49,11 @@ function parse_testr {
 					$checks[$version] = $true;
 				}
 			}
-			if ($checks_summary) {
-				write-host ($_.fullname, " (", ($checks.keys -join ", "), ") = (", ($checks.values -join ", "), ")");
-			} else {
-				write-host ($_.fullname, " (", ($checks.keys -join ", "), ") = (", ($checks.values -join ", "), ")") -foregroundcolor yellow;
+
+			write-host ($_.fullname + ":");
+			foreach ($version in $parsers.keys) {
+				$color = if ($checks[$version]) { "Green" } else { "Yellow" };
+				write-host ("  {0,-16} {1}" -f $version, $checks[$version]) -foregroundcolor $color;
 			}
 		}
 		$return_flg = ($return_flg -and $checks_summary);
